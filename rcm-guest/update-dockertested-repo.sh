@@ -2,6 +2,12 @@
 # VARIABLES
 LOCAL_BASE_DIR="/mnt/rcm-guest/puddles/RHAOS/Docker/1.9/tested/"
 REMOTE_BASE_DIR="/srv/enterprise/rhel/dockertested/"
+MYUID="$(id -u)"
+if [ "${MYUID}" == "55003" ] ; then
+  BOT_USER="-l jenkins_aos_cd_bot"
+else
+  BOT_USER=""
+fi
 
 usage() {
   echo >&2
@@ -37,6 +43,6 @@ cd ${LOCAL_BASE_DIR}/x86_64/os
 createrepo -d .
 
 # Push everything up to the mirrors
-rsync -aHv --delete-after --progress --no-g --omit-dir-times --chmod=Dug=rwX -e "ssh -l jenkins_aos_cd_bot -o StrictHostKeyChecking=no" ${LOCAL_BASE_DIR} use-mirror-upload.ops.rhcloud.com:${REMOTE_BASE_DIR}
-ssh -l jenkins_aos_cd_bot -o StrictHostKeychecking=no use-mirror-upload.ops.rhcloud.com /usr/local/bin/push.enterprise.sh rhel -v
+rsync -aHv --delete-after --progress --no-g --omit-dir-times --chmod=Dug=rwX -e "ssh ${BOT_USER} -o StrictHostKeyChecking=no" ${LOCAL_BASE_DIR} use-mirror-upload.ops.rhcloud.com:${REMOTE_BASE_DIR}
+ssh ${BOT_USER} -o StrictHostKeychecking=no use-mirror-upload.ops.rhcloud.com /usr/local/bin/push.enterprise.sh rhel -v
 
