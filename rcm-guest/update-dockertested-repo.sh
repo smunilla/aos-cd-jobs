@@ -37,6 +37,6 @@ cd ${LOCAL_BASE_DIR}/x86_64/os
 createrepo -d .
 
 # Push everything up to the mirrors
-rsync -aHv --delete-after --progress --no-g --omit-dir-times --chmod=Dug=rwX -e "ssh -o StrictHostKeyChecking=no" ${LOCAL_BASE_DIR} use-mirror-upload.ops.rhcloud.com:${REMOTE_BASE_DIR}
-ssh -o StrictHostKeychecking=no use-mirror-upload.ops.rhcloud.com /usr/local/bin/push.enterprise.sh rhel -v
+rsync -aHv --delete-after --progress --no-g --omit-dir-times --chmod=Dug=rwX -e "ssh -l jenkins_aos_cd_bot -o StrictHostKeyChecking=no" ${LOCAL_BASE_DIR} use-mirror-upload.ops.rhcloud.com:${REMOTE_BASE_DIR}
+ssh -l jenkins_aos_cd_bot -o StrictHostKeychecking=no use-mirror-upload.ops.rhcloud.com /usr/local/bin/push.enterprise.sh rhel -v
 
