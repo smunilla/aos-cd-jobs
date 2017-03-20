@@ -37,16 +37,17 @@ usage() {
   echo "Usage `basename $0` [action] <options>" >&2
   echo >&2
   echo "Actions:" >&2
-  echo "  build_container :: Build containers in OSBS" >&2
-  echo "  push_images     :: Push images to qe-registry" >&2
-  echo "  compare_git     :: Compare dist-git Dockerfile and other files with those in git" >&2
+  echo "  build build_container :: Build containers in OSBS" >&2
+  echo "  push push_images :: Push images to qe-registry" >&2
+  echo "  compare_git      :: Compare dist-git Dockerfile and other files with those in git" >&2
   echo "  compare_nodocker :: Compare dist-git files with those in git.  Show but do not change Dockerfile changes" >&2
-  echo "  update_docker   :: Update dist-git Dockerfile version, release, or rhel" >&2
-  echo "  update_compare  :: Run update_docker, compare_update, then update_docker again" >&2
-  echo "  update_errata   :: Update image errata with Docker images" >&2
-  echo "  make_yaml       :: Print out yaml from Dockerfile for release" >&2
-  echo "  list            :: Display full list of packages / images" >&2
-  echo "  test            :: Display what packages would be worked on" >&2
+  echo "  update_docker    :: Update dist-git Dockerfile version, release, or rhel" >&2
+  echo "  update_compare   :: Run update_docker, compare_update, then update_docker again" >&2
+  echo "  make_yaml        :: Print out yaml from Dockerfile for release" >&2
+  echo "  merge_to_newest  :: Merge dist-git Release-1 to Release [--branch is required]" >&2
+  #echo "  update_errata    :: Update image errata with Docker images" >&2
+  #echo "  list             :: Display full list of packages / images" >&2
+  echo "  test             :: Display what packages would be worked on" >&2
   echo >&2
   echo "Options:" >&2
   echo "  -h, --help          :: Show this options menu" >&2
@@ -66,8 +67,8 @@ usage() {
   echo "  --rhel [version]    :: Change Dockerfile RHEL version e.g. rhel7.2:7.2-35 or rhel7:latest" >&2
   echo "  --branch [version]  :: Use a certain dist-git branch  default[${DIST_GIT_BRANCH}]" >&2
   echo "  --repo [Repo URL]   :: Use a certain yum repo  default[${BUILD_REPO}]" >&2
-  echo "  --errata_id [id]      :: errata id to use  default[${ERRATA_ID}]" >&2
-  echo "  --errata_pv [version] :: errata product version to use  default[${ERRATA_PRODUCT_VERSION}]" >&2
+#  echo "  --errata_id [id]      :: errata id to use  default[${ERRATA_ID}]" >&2
+#  echo "  --errata_pv [version] :: errata product version to use  default[${ERRATA_PRODUCT_VERSION}]" >&2
   echo "  --pull_reg [registry] :: docker registry to pull from  default[${PULL_REGISTRY}]" >&2
   echo "  --push_reg [registry] :: docker registry to push to  default[${PUSH_REGISTRY}]" >&2
   echo "  --prebuilt [package]  :: Package has already been prebuilt correctly" >&2
@@ -410,6 +411,40 @@ update_dockerfile() {
   popd >/dev/null
 }
 
+merge_to_newest_dist_git() {
+  pushd "${workingdir}/${container}" >/dev/null
+  rhpkg switch-branch "${branch}" >/dev/null
+  if [ -s Dockerfile ] ; then
+    echo " Dockerfile already in new branch."
+    echo " Assuming merge has already happened."
+    echo " Skipping."
+  else
+    rhpkg switch-branch "rhaos-${MAJOR_RELEASE_MINUS}-rhel-7" >/dev/null
+    rhpkg switch-branch "${branch}" >/dev/null
+    echo " Merging ..."
+    git merge -m "Merge branch rhaos-${MAJOR_RELEASE_MINUS}-rhel-7 into rhaos-${MAJOR_RELEASE}-rhel-7" rhaos-${MAJOR_RELEASE_MINUS}-rhel-7 >/dev/null
+    echo " Pushing to dist-git ..."
+    rhpkg push  >/dev/null 2>&1
+    echo " Fixing ose yum repo"
+    sed -i "s|rhel-7-server-ose-${MAJOR_RELEASE_MINUS}-rpms|rhel-7-server-ose-${MAJOR_RELEASE}-rpms|g" Dockerfile
+    echo " Fixing additional-tags"
+    TAG_TYPE="default"
+    for current_tag in ${tag_list} ; do
+      if [ "${current_tag}" == "all-v" ] ; then
+        TAG_TYPE="all-v"
+      fi
+    done
+    if [ "${TAG_TYPE}" == "default" ] ; then
+      sed -i "s|v${MAJOR_RELEASE_MINUS}|v${MAJOR_RELEASE}|g" additional-tags
+    else
+      echo "v${MAJOR_RELEASE}" >> additional-tags
+    fi
+    echo " Pushing to dist-git ..."
+    rhpkg commit -p -m "Update ose yum repo and/or additional-tags" >/dev/null 2>&1
+  fi
+  popd >/dev/null
+}
+
 show_git_diffs() {
   pushd "${workingdir}/${container}" >/dev/null
   if ! [ "${git_style}" == "dockerfile_only" ] ; then
@@ -484,7 +519,7 @@ show_git_diffs() {
       echo "(c)ontinue [rhpkg commit], (i)gnore, (q)uit [exit script] : "
       read choice_raw < /dev/tty
       choice=$(echo "${choice_raw}" | awk '{print $1}')
-      case ${choice} in
+      case "${choice}" in
         c | C | continue )
           mv -f .osbs-logs/Dockerfile.diff.new .osbs-logs/Dockerfile.diff 2> /dev/null
           git add .osbs-logs/Dockerfile.diff 2> /dev/null
@@ -611,7 +646,7 @@ show_dockerfile_diffs() {
       echo "(c)ontinue [replace old diff], (i)gnore [leave old diff], (q)uit [exit script] : "
       read choice_raw < /dev/tty
       choice=$(echo "${choice_raw}" | awk '{print $1}')
-      case ${choice} in
+      case "${choice}" in
         c | C | continue )
           /bin/cp -f Dockerfile .osbs-logs/Dockerfile.last
           git add .osbs-logs/Dockerfile.last
@@ -865,6 +900,13 @@ build_yaml() {
   popd >/dev/null
 }
 
+merge_to_newest() {
+  pushd "${workingdir}" >/dev/null
+  setup_dist_git
+  merge_to_newest_dist_git
+  popd >/dev/null
+}
+
 update_errata() {
   pushd "${workingdir}" >/dev/null
   setup_dockerfile
@@ -895,7 +937,7 @@ while [[ "$#" -ge 1 ]]
 do
 key="$1"
 case $key in
-    compare_git | git_compare | compare_nodocker | update_docker | docker_update | build_container | build | make_yaml | push_images | push | update_compare | update_errata | test)
+    compare_git | git_compare | compare_nodocker | merge_to_newest | update_docker | docker_update | build_container | build | make_yaml | push_images | push | update_compare | update_errata | test)
       export action="${key}"
       ;;
     list)
@@ -1036,6 +1078,32 @@ do
     add_group_to_list "${group_input}"
   fi
 done
+
+# Setup Merge to Newest
+if [ "${action}" == "merge_to_newest" ] ; then
+  MINOR_RELEASE=$(echo ${MAJOR_RELEASE} | cut -d'.' -f2)
+  let MINOR_RELEASE_MINUS=${MINOR_RELEASE}-1
+  MAJOR_RELEASE_MINUS="$(echo ${MAJOR_RELEASE} | cut -d'.' -f1).${MINOR_RELEASE_MINUS}"
+  if ! [ "${FORCE}" == "TRUE" ] ; then
+    echo
+    echo "We will be merging rhaos-${MAJOR_RELEASE_MINUS}-rhel-7 into rhaos-${MAJOR_RELEASE}-rhel-7"
+    echo "Is this correct (N/y)"
+    read choice
+    case "${choice}" in
+      y | Y | yes | Yes )
+        echo
+        echo "Starting merging ..."
+      ;;
+      *)
+        echo
+        echo "y/Y/yes/Yes was not chosen, exiting"
+        echo "  You can use --force to skip this question"
+        exit 5
+      ;;
+    esac
+  fi
+fi
+
 
 # Setup directory
 if ! [ "${action}" == "test" ] && ! [ "${action}" == "list" ] ; then
@@ -1189,6 +1257,11 @@ do
       if ! [ "${docker_name_list}" == "" ] ; then
         build_yaml
       fi
+    ;;
+    merge_to_newest )
+      echo "=== ${container} ==="
+      export tag_list="${dict_image_tags[${container}]}"
+      merge_to_newest
     ;;
     update_errata )
       if ! [ -f ${SCRIPT_HOME}/et_add_image ] ; then
