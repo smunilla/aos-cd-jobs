@@ -18,6 +18,7 @@ set -o xtrace
 
 ## LOCAL VARIABLES ##
 MASTER_RELEASE="3.6"
+MASTER_BRANCHED_RELEASE="3.5"
 MAJOR_RELEASE="3.5"
 DIST_GIT_BRANCH="rhaos-${MAJOR_RELEASE}-rhel-7"
 #DIST_GIT_BRANCH="rhaos-3.2-rhel-7-candidate"
@@ -449,7 +450,7 @@ show_git_diffs() {
   pushd "${workingdir}/${container}" >/dev/null
   if ! [ "${git_style}" == "dockerfile_only" ] ; then
     echo "  ---- Checking files changed, added or removed ----"
-    extra_check=$(diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e Dockerfile -e additional-tags -e ${container}/.git -e ${git_path}/.git -e osbs )
+    extra_check=$(diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e ${container}/Dockerfile -e ${git_path}/Dockerfile -e ${container}/additional-tags -e ${container}/.git -e ${git_path}/.git -e ' .git' -e ${container}/.osbs -e ' .osbs')
     if ! [ "${extra_check}" == "" ] ; then
       echo "${extra_check}"
     fi
@@ -479,7 +480,7 @@ show_git_diffs() {
         myold_dir=$(echo "${old_file_line}" | awk '{print $3}' | cut -d':' -f1)
         myold_dir_file="${myold_dir}/${myold_file}"
         myold_dir_file_trim="${myold_dir_file#$working_path}"
-        git rm ${myold_dir_file_trim}
+        git rm -r ${myold_dir_file_trim}
       done
     fi
     if ! [ "${new_file}" == "" ] ; then
@@ -546,7 +547,7 @@ show_git_diffs_nice_docker() {
   pushd "${workingdir}/${container}" >/dev/null
   if ! [ "${git_style}" == "dockerfile_only" ] ; then
     echo "  ---- Checking files changed, added or removed ----"
-    extra_check=$(diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e Dockerfile -e additional-tags -e ${container}/.git -e ${git_path}/.git -e osbs )
+    extra_check=$(diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e ${container}/Dockerfile -e ${git_path}/Dockerfile -e ${container}/additional-tags -e ${container}/.git -e ${git_path}/.git -e ' .git' -e ${container}/.osbs -e ' .osbs')
     if ! [ "${extra_check}" == "" ] ; then
       echo "${extra_check}"
     fi
@@ -576,7 +577,7 @@ show_git_diffs_nice_docker() {
         myold_dir=$(echo "${old_file_line}" | awk '{print $3}' | cut -d':' -f1)
         myold_dir_file="${myold_dir}/${myold_file}"
         myold_dir_file_trim="${myold_dir_file#$working_path}"
-        git rm ${myold_dir_file_trim}
+        git rm -r ${myold_dir_file_trim}
       done
     fi
     if ! [ "${new_file}" == "" ] ; then
@@ -1164,7 +1165,12 @@ do
       if [ "${MASTER_RELEASE}" == "${MAJOR_RELEASE}" ] ; then
         export git_branch="master"
       else
-        export git_branch="enterprise-${MAJOR_RELEASE}"
+        if [ "${container}" == "aos3-installation-docker" ] ; then
+          MINOR_RELEASE=$(echo ${MAJOR_RELEASE} | cut -d'.' -f2)
+          export git_branch="release-1.${MINOR_RELEASE}"
+        else
+          export git_branch="enterprise-${MAJOR_RELEASE}"
+        fi
       fi
       export git_repo=$(echo "${dict_git_compare[${container}]}" | awk '{print $1}')
       export git_path=$(echo "${dict_git_compare[${container}]}" | awk '{print $2}')
@@ -1185,7 +1191,12 @@ do
       if [ "${MASTER_RELEASE}" == "${MAJOR_RELEASE}" ] ; then
         export git_branch="master"
       else
-        export git_branch="enterprise-${MAJOR_RELEASE}"
+        if [ "${container}" == "aos3-installation-docker" ] ; then
+          MINOR_RELEASE=$(echo ${MAJOR_RELEASE} | cut -d'.' -f2)
+          export git_branch="release-1.${MINOR_RELEASE}"
+        else
+          export git_branch="enterprise-${MAJOR_RELEASE}"
+        fi
       fi
       export git_repo=$(echo "${dict_git_compare[${container}]}" | awk '{print $1}')
       export git_path=$(echo "${dict_git_compare[${container}]}" | awk '{print $2}')
@@ -1213,7 +1224,12 @@ do
       if [ "${MASTER_RELEASE}" == "${MAJOR_RELEASE}" ] ; then
         export git_branch="master"
       else
-        export git_branch="enterprise-${MAJOR_RELEASE}"
+        if [ "${container}" == "aos3-installation-docker" ] ; then
+          MINOR_RELEASE=$(echo ${MAJOR_RELEASE} | cut -d'.' -f2)
+          export git_branch="release-1.${MINOR_RELEASE}"
+        else
+          export git_branch="enterprise-${MAJOR_RELEASE}"
+        fi
       fi
       if [ "${REALLYFORCE}" == "TRUE" ] ; then
         export FORCE="TRUE"
