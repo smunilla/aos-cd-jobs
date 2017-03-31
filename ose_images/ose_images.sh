@@ -41,6 +41,7 @@ usage() {
   echo "  build build_container :: Build containers in OSBS" >&2
   echo "  push push_images :: Push images to qe-registry" >&2
   echo "  compare_git      :: Compare dist-git Dockerfile and other files with those in git" >&2
+  echo "  compare_auto     :: Auto compare dist-git files with those in git. Sends Dockerfile diff in email" >&2
   echo "  compare_nodocker :: Compare dist-git files with those in git.  Show but do not change Dockerfile changes" >&2
   echo "  update_docker    :: Update dist-git Dockerfile version, release, or rhel" >&2
   echo "  update_compare   :: Run update_docker, compare_update, then update_docker again" >&2
@@ -450,6 +451,7 @@ show_git_diffs() {
   pushd "${workingdir}/${container}" >/dev/null
   if ! [ "${git_style}" == "dockerfile_only" ] ; then
     echo "  ---- Checking files changed, added or removed ----"
+    echo "diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e ${container}/Dockerfile -e ${git_path}/Dockerfile -e ${container}/additional-tags -e ${container}/.git -e ${git_path}/.git -e ' .git' -e ${container}/.osbs -e ' .osbs'"
     extra_check=$(diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e ${container}/Dockerfile -e ${git_path}/Dockerfile -e ${container}/additional-tags -e ${container}/.git -e ${git_path}/.git -e ' .git' -e ${container}/.osbs -e ' .osbs')
     if ! [ "${extra_check}" == "" ] ; then
       echo "${extra_check}"
@@ -499,14 +501,30 @@ show_git_diffs() {
     fi
   fi
   echo "  ---- Checking Dockerfile changes ----"
-  diff --label Dockerfile --label ${git_path}/Dockerfile -u0 Dockerfile ${workingdir}/${git_path}/${git_dockerfile} >> .osbs-logs/Dockerfile.diff.new
-  if ! [ -f .osbs-logs/Dockerfile.diff ] ; then
-    touch .osbs-logs/Dockerfile.diff
+  if ! [ -f .osbs-logs/Dockerfile.git.last ] ; then
+    cp ${workingdir}/${git_path}/${git_dockerfile} .osbs-logs/Dockerfile.git.last
+    git add .osbs-logs/Dockerfile.git.last
+    newdiff="First time comparing Dockerfiles, nothing to compare to."
   fi
-  newdiff=`diff -u0 .osbs-logs/Dockerfile.diff .osbs-logs/Dockerfile.diff.new | grep -v -e Dockerfile -e '@@' -e release= -e version= -e 'FROM '`
-  if [ "${newdiff}" == "" ] ; then
-    mv -f .osbs-logs/Dockerfile.diff.new .osbs-logs/Dockerfile.diff 2> /dev/null
-    git add .osbs-logs/Dockerfile.diff 2> /dev/null
+  cp ${workingdir}/${git_path}/${git_dockerfile} .osbs-logs/Dockerfile.git.new
+  diff --label Dockerfile.orig --label Dockerfile -u .osbs-logs/Dockerfile.git.last .osbs-logs/Dockerfile.git.new >> .osbs-logs/Dockerfile.patch.new
+  if [ -s .osbs-logs/Dockerfile.patch.new ] ; then
+    mv -f .osbs-logs/Dockerfile.patch.new .osbs-logs/Dockerfile.patch
+    cp -f Dockerfile .osbs-logs/Dockerfile.dist-git.last
+    patch -p0 -i .osbs-logs/Dockerfile.patch
+    if [ "${?}" != "0" ] ; then
+      echo "FAILED PATCH"
+      echo "Exiting ..."
+      exit 5
+    fi
+    mv -f .osbs-logs/Dockerfile.git.new .osbs-logs/Dockerfile.git.last
+    git add .osbs-logs/Dockerfile.patch
+    git add .osbs-logs/Dockerfile.git.last
+    git add .osbs-logs/Dockerfile.dist-git.last
+    git add Dockerfile
+    newdiff="$(diff -u Dockerfile .osbs-logs/Dockerfile.dist-git.last)"
+  else
+    rm -f .osbs-logs/Dockerfile.patch.new .osbs-logs/Dockerfile.git.new
   fi
   if ! [ "${newdiff}" == "" ] || ! [ "${extra_check}" == "" ] ; then
     echo "${newdiff}"
@@ -514,7 +532,7 @@ show_git_diffs() {
     echo "Changes occured "
     if [ "${FORCE}" == "TRUE" ] ; then
       echo "  Force Option Selected - Assuming Continue"
-      mv -f .osbs-logs/Dockerfile.diff.new .osbs-logs/Dockerfile.diff ; git add .osbs-logs/Dockerfile.diff ; rhpkg ${USER_USERNAME} commit -p -m "${COMMIT_MESSAGE} ${version_version} ${release_version} ${rhel_version}" > /dev/null
+      rhpkg ${USER_USERNAME} commit -p -m "${COMMIT_MESSAGE} ${version_version} ${release_version} ${rhel_version}" > /dev/null
     else
       echo "  To view/modify changes, go to: ${workingdir}/${container}"
       echo "(c)ontinue [rhpkg commit], (i)gnore, (q)uit [exit script] : "
@@ -522,19 +540,15 @@ show_git_diffs() {
       choice=$(echo "${choice_raw}" | awk '{print $1}')
       case "${choice}" in
         c | C | continue )
-          mv -f .osbs-logs/Dockerfile.diff.new .osbs-logs/Dockerfile.diff 2> /dev/null
-          git add .osbs-logs/Dockerfile.diff 2> /dev/null
           rhpkg ${USER_USERNAME} commit -p -m "${COMMIT_MESSAGE} ${version_version} ${release_version} ${rhel_version}" > /dev/null
           ;;
         i | I | ignore )
-          rm -f .osbs-logs/Dockerfile.diff.new
           ;;
         q | Q | quit )
           break
           ;;
         * )
           echo "${choice} not and option.  Assuming ignore"
-          rm -f .osbs-logs/Dockerfile.diff.new
           ;;
       esac
     fi
@@ -547,7 +561,7 @@ show_git_diffs_nice_docker() {
   pushd "${workingdir}/${container}" >/dev/null
   if ! [ "${git_style}" == "dockerfile_only" ] ; then
     echo "  ---- Checking files changed, added or removed ----"
-    extra_check=$(diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e ${container}/Dockerfile -e ${git_path}/Dockerfile -e ${container}/additional-tags -e ${container}/.git -e ${git_path}/.git -e ' .git' -e ${container}/.osbs -e ' .osbs')
+    extra_check=$(diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e ${container}/Dockerfile -e ${git_path}/Dockerfile -e ' Dockerfile' -e ${container}/additional-tags -e ' additional-tags' -e ${container}/.git -e ${git_path}/.git -e ' .git' -e ${container}/.osbs -e ' .osbs')
     if ! [ "${extra_check}" == "" ] ; then
       echo "${extra_check}"
     fi
@@ -596,11 +610,31 @@ show_git_diffs_nice_docker() {
     fi
   fi
   echo "  ---- Checking Dockerfile changes ----"
-  diff --label Dockerfile --label ${git_path}/Dockerfile -u0 Dockerfile ${workingdir}/${git_path}/${git_dockerfile} >> .osbs-logs/Dockerfile.diff.new
-  if ! [ -f .osbs-logs/Dockerfile.diff ] ; then
-    touch .osbs-logs/Dockerfile.diff
+  if ! [ -f .osbs-logs/Dockerfile.git.last ] ; then
+    cp ${workingdir}/${git_path}/${git_dockerfile} .osbs-logs/Dockerfile.git.last
+    git add .osbs-logs/Dockerfile.git.last
+    newdiff="First time comparing Dockerfiles, nothing to compare to."
   fi
-  newdiff=`diff -u0 .osbs-logs/Dockerfile.diff .osbs-logs/Dockerfile.diff.new | grep -v -e Dockerfile -e '@@' -e release= -e version= -e 'FROM '`
+  cp ${workingdir}/${git_path}/${git_dockerfile} .osbs-logs/Dockerfile.git.new
+  diff --label Dockerfile.orig --label Dockerfile -u .osbs-logs/Dockerfile.git.last .osbs-logs/Dockerfile.git.new >> .osbs-logs/Dockerfile.patch.new
+  if [ -s .osbs-logs/Dockerfile.patch.new ] ; then
+    mv -f .osbs-logs/Dockerfile.patch.new .osbs-logs/Dockerfile.patch
+    cp -f Dockerfile .osbs-logs/Dockerfile.dist-git.last
+    patch -p0 -i .osbs-logs/Dockerfile.patch
+    if [ "${?}" != "0" ] ; then
+      echo "FAILED PATCH"
+      echo "Exiting ..."
+      exit 5
+    fi
+    mv -f .osbs-logs/Dockerfile.git.new .osbs-logs/Dockerfile.git.last
+    git add .osbs-logs/Dockerfile.patch
+    git add .osbs-logs/Dockerfile.git.last
+    git add .osbs-logs/Dockerfile.dist-git.last
+    git add Dockerfile
+    newdiff="$(diff -u Dockerfile .osbs-logs/Dockerfile.dist-git.last)"
+  else
+    rm -f .osbs-logs/Dockerfile.patch.new .osbs-logs/Dockerfile.git.new
+  fi
   if ! [ "${newdiff}" == "" ] || ! [ "${extra_check}" == "" ] ; then
     echo " "
     echo "Changes occured "
@@ -938,7 +972,7 @@ while [[ "$#" -ge 1 ]]
 do
 key="$1"
 case $key in
-    compare_git | git_compare | compare_nodocker | merge_to_newest | update_docker | docker_update | build_container | build | make_yaml | push_images | push | update_compare | update_errata | test)
+    compare_git | git_compare | compare_nodocker | compare_auto | merge_to_newest | update_docker | docker_update | build_container | build | make_yaml | push_images | push | update_compare | update_errata | test)
       export action="${key}"
       ;;
     list)
@@ -1187,7 +1221,7 @@ do
         echo " Skipping"
       fi
     ;;
-    compare_nodocker )
+    compare_nodocker | compare_auto )
       if [ "${MASTER_RELEASE}" == "${MAJOR_RELEASE}" ] ; then
         export git_branch="master"
       else
@@ -1368,13 +1402,13 @@ case "$action" in
     echo "Fail Pushes: ${BUILD_FAIL}"
     cat ${workingdir}/logs/buildfailed | cut -d':' -f3-4
   ;;
-  compare_nodocker )
+  compare_nodocker | compare_auto )
     if [ -s ${workingdir}/logs/mailfile ] ; then
       mail -s "[${MAJOR_RELEASE}] Dockerfile merge diffs" tdawson@redhat.com,smunilla@redhat.com < ${workingdir}/logs/mailfile
-      echo "===== GIT COMPARE FAIL ====="
+      echo "===== GIT COMPARE DOCKEFILE CHANGES ====="
       cat ${workingdir}/logs/mailfile
-      echo "Exiting ..."
-      exit 1
+      # echo "Exiting ..."
+      # exit 1
     fi
   ;;
 esac
