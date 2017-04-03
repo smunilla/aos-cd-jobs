@@ -117,7 +117,6 @@ add_group_to_list() {
         add_to_list openshift-enterprise-dockerregistry-docker
         add_to_list openshift-enterprise-egress-router-docker
         add_to_list openshift-enterprise-keepalived-ipfailover-docker
-        add_to_list openshift-enterprise-openvswitch-docker
         add_to_list aos-f5-router-docker
         add_to_list openshift-enterprise-deployer-docker
         add_to_list openshift-enterprise-haproxy-router-docker
@@ -127,6 +126,7 @@ add_group_to_list() {
         add_to_list openshift-enterprise-docker-builder-docker
         add_to_list logging-deployment-docker
         add_to_list metrics-deployer-docker
+        add_to_list openshift-enterprise-openvswitch-docker
       fi
     ;;
     sti)
@@ -327,12 +327,6 @@ check_build_dependencies() {
 
 build_image() {
     rhpkg ${USER_USERNAME} container-build ${SCRATCH_OPTION} --repo ${BUILD_REPO} >> ${workingdir}/logs/${container}.buildlog 2>&1 &
-    #rhpkg container-build --repo http://file.rdu.redhat.com/tdawson/repo/aos-container-unsigned-building.repo >> ${workingdir}/logs/${container}.buildlog 2>&1 &
-    #rhpkg container-build --repo http://file.rdu.redhat.com/tdawson/repo/aos-container-unsigned-latest.repo >> ${workingdir}/logs/${container}.buildlog 2>&1 &
-    #rhpkg container-build --repo http://file.rdu.redhat.com/tdawson/repo/aos-container-unsigned-errata-building.repo >> ${workingdir}/logs/${container}.buildlog 2>&1 &
-    #rhpkg container-build --repo http://file.rdu.redhat.com/tdawson/repo/aos-container-unsigned-errata-latest.repo >> ${workingdir}/logs/${container}.buildlog 2>&1 &
-    #rhpkg container-build --repo http://file.rdu.redhat.com/tdawson/repo/aos-container-signed-building.repo >> ${workingdir}/logs/${container}.buildlog 2>&1 &
-    #rhpkg container-build --repo http://file.rdu.redhat.com/tdawson/repo/aos-container-signed-latest.repo >> ${workingdir}/logs/${container}.buildlog 2>&1 &
     #rhpkg container-build --repo http://file.rdu.redhat.com/tdawson/repo/aos-unsigned-building.repo >> ${workingdir}/logs/${container}.buildlog 2>&1 &
     #rhpkg container-build --repo http://file.rdu.redhat.com/tdawson/repo/aos-unsigned-latest.repo >> ${workingdir}/logs/${container}.buildlog 2>&1 &
     #rhpkg container-build --repo http://file.rdu.redhat.com/tdawson/repo/aos-unsigned-errata-building.repo >> ${workingdir}/logs/${container}.buildlog 2>&1 &
