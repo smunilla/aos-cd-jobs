@@ -58,5 +58,7 @@ ssh ${BOT_USER} -o StrictHostKeychecking=no use-mirror-upload.ops.rhcloud.com "c
 rsync -aHv --delete-after --progress --no-g --omit-dir-times --chmod=Dug=rwX -e "ssh ${BOT_USER} -o StrictHostKeyChecking=no" ${PUDDLEDIR} use-mirror-upload.ops.rhcloud.com:/srv/enterprise/${REPO}/latest/
 if [ "${TYPE}" == "simple" ] ; then
 ssh ${BOT_USER} -o StrictHostKeychecking=no use-mirror-upload.ops.rhcloud.com "cd /srv/enterprise/${REPO}/latest ; ln -s mash/rhaos-${VERSION}-rhel-7-candidate RH7-RHAOS-${VERSION}"
+else
+ssh ${BOT_USER} -o StrictHostKeychecking=no use-mirror-upload.ops.rhcloud.com "cd /srv/enterprise/${REPO}/latest ; ln -s RH7-RHAOS-${VERSION}/* ."
 fi
 ssh ${BOT_USER} -o StrictHostKeychecking=no use-mirror-upload.ops.rhcloud.com /usr/local/bin/push.enterprise.sh ${REPO} -v
