@@ -47,10 +47,10 @@ fi
 
 if [ "${TYPE}" == "simple" ] ; then
 PUDDLEDIR="${BASEDIR}/AtomicOpenShift/${VERSION}/latest/"
-LASTDIR=`ls -lh ${BASEDIR}/AtomicOpenShift/${VERSION}/latest | awk '{print $11}'`
+LASTDIR=$(readlink ${BASEDIR}/AtomicOpenShift/${VERSION}/latest)
 else
 PUDDLEDIR="${BASEDIR}/AtomicOpenShift-errata/${VERSION}/latest/"
-LASTDIR=`ls -lh ${BASEDIR}/AtomicOpenShift-errata/${VERSION}/latest | awk '{print $11}'`
+LASTDIR=$(readlink ${BASEDIR}/AtomicOpenShift-errata/${VERSION}/latest)
 fi
 echo $LASTDIR
 
