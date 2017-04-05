@@ -445,8 +445,8 @@ show_git_diffs() {
   pushd "${workingdir}/${container}" >/dev/null
   if ! [ "${git_style}" == "dockerfile_only" ] ; then
     echo "  ---- Checking files changed, added or removed ----"
-    echo "diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e ${container}/Dockerfile -e ${git_path}/Dockerfile -e ${container}/additional-tags -e ${container}/.git -e ${git_path}/.git -e ' .git' -e ${container}/.osbs -e ' .osbs'"
-    extra_check=$(diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e ${container}/Dockerfile -e ${git_path}/Dockerfile -e ${container}/additional-tags -e ${container}/.git -e ${git_path}/.git -e ' .git' -e ${container}/.osbs -e ' .osbs')
+    echo "diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e ${container}/Dockerfile -e ${git_path}/Dockerfile -e ' Dockerfile' -e ${container}/additional-tags -e ' additional-tags' -e ${container}/.git -e ${git_path}/.git -e ' .git' -e ${container}/.osbs -e ' .osbs'"
+    extra_check=$(diff --brief -r ${workingdir}/${container} ${workingdir}/${git_path} | grep -v -e ${container}/Dockerfile -e ${git_path}/Dockerfile -e ' Dockerfile' -e ${container}/additional-tags -e ' additional-tags' -e ${container}/.git -e ${git_path}/.git -e ' .git' -e ${container}/.osbs -e ' .osbs')
     if ! [ "${extra_check}" == "" ] ; then
       echo "${extra_check}"
     fi
