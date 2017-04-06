@@ -26,18 +26,26 @@ sort -o ${SIGNEDTMP} ${SIGNEDTMP}
 echo "==== IN Errata Only ===="
 comm -23 ${ERRATATMP} ${SIGNEDTMP} | while read line
 do
-  rpm -qp --qf "%{SOURCERPM}\n" $line | rev | cut -d'.' -f3- | rev >> ${TMPDIR}/erratasourcerpm
+  rpm -qp --qf "%{SOURCERPM}\n" ${ERRATADIR}/$line | rev | cut -d'.' -f3- | rev >> ${TMPDIR}/erratasourcerpm
 done
-sort -u -o ${TMPDIR}/erratasourcerpm ${TMPDIR}/erratasourcerpm
-cat ${TMPDIR}/erratasourcerpm
+if [ -s ${TMPDIR}/erratasourcerpm ] ; then
+  sort -u -o ${TMPDIR}/erratasourcerpm ${TMPDIR}/erratasourcerpm
+  cat ${TMPDIR}/erratasourcerpm
+else
+  echo "  No Differences"
+fi
 echo
 echo "==== IN Signed Only ===="
 comm -13 ${ERRATATMP} ${SIGNEDTMP} | while read line
 do
-  rpm -qp --qf "%{SOURCERPM}\n" $line | rev | cut -d'.' -f3- | rev >> ${TMPDIR}/signedsourcerpm
+  rpm -qp --qf "%{SOURCERPM}\n" ${SIGNEDDIR}/$line | rev | cut -d'.' -f3- | rev >> ${TMPDIR}/signedsourcerpm
 done
-sort -u -o ${TMPDIR}/signedsourcerpm ${TMPDIR}/signedsourcerpm
-cat ${TMPDIR}/signedsourcerpm
+if [ -s ${TMPDIR}/signedsourcerpm ] ; then
+  sort -u -o ${TMPDIR}/signedsourcerpm ${TMPDIR}/signedsourcerpm
+  cat ${TMPDIR}/signedsourcerpm
+else
+  echo "  No Differences"
+fi
 echo
 
 # Cleanup
