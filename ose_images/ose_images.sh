@@ -204,17 +204,21 @@ add_group_to_list() {
 }
 
 setup_dist_git() {
-  if ! klist &>/dev/null ; then
-    echo "Error: Kerberos token not found." ; popd &>/dev/null ; exit 1
+  if ! klist &>${workingdir}/logs/${container}.output ; then
+    echo "Error: Kerberos token not found." ; popd &>${workingdir}/logs/${container}.output ; exit 1
   fi
   if [ "${VERBOSE}" == "TRUE" ] ; then
     echo "  ** setup_dist_git **"
     echo " container:  ${container} branch: ${branch} "
   fi
-  rhpkg ${USER_USERNAME} clone "${container}" &>/dev/null
-  pushd ${container} >/dev/null
-  rhpkg switch-branch "${branch}" &>/dev/null
-  popd >/dev/null
+  rhpkg ${USER_USERNAME} clone "${container}" &>${workingdir}/logs/${container}.output
+  if [ -d ${container} ] ; then
+    pushd ${container} >${workingdir}/logs/${container}.output
+    rhpkg switch-branch "${branch}" &>${workingdir}/logs/${container}.output
+    popd >${workingdir}/logs/${container}.output
+  else
+    echo " Failed to clone container: ${container}"
+  fi
 }
 
 setup_dockerfile() {
