@@ -1,0 +1,32 @@
+---
+parameters: []
+provision:
+  os: "rhel"
+  stage: "base"
+  provider: "aws"
+sync_repos:
+  - name: "origin"
+actions:
+  - type: "script"
+    title: "use a ramdisk for etcd"
+    timeout: 300
+    script: |-
+      sudo su root <<SUDO
+      mkdir -p /tmp
+      mount -t tmpfs -o size=4096m tmpfs /tmp
+      mkdir -p /tmp/etcd
+      chmod a+rwx /tmp/etcd
+      restorecon -R /tmp
+      echo "ETCD_DATA_DIR=/tmp/etcd" >> /etc/environment
+      SUDO
+post_actions: []
+artifacts:
+  - "/data/src/github.com/openshift/origin/_output/scripts"
+generated_artifacts:
+  installed_packages.log: 'sudo yum list installed'
+  avc_denials.log: 'sudo ausearch -m avc'
+  docker.info: 'sudo docker version && sudo docker info && sudo docker images && sudo docker ps -a'
+  filesystem.info: 'sudo df -h && sudo vgs && sudo lvs'
+  pid1.journal: 'sudo journalctl _PID=1 --no-pager --all --lines=all'
+system_journals:
+  - docker.service
