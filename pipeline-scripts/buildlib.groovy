@@ -80,12 +80,25 @@ def initialize_enterprise_images_dir() {
     echo "Initialized env.ENTERPRISE_IMAGES_DIR: ${env.ENTERPRISE_IMAGES_DIR}"
 }
 
-def oit(cmd, opts=[:]){
+def clean_cmd(cmd){
     cmd = cmd.replaceAll( '\n', ' ' ) // Allow newlines in command for readability, but don't let them flow into the sh
     cmd = cmd.replaceAll( ' \\ ', ' ' ) // If caller included line continuation characters, remove them
+
+    returen cmd
+}
+
+def oit(cmd, opts=[:]){
+    cmd = clean_cmd(cmd)
     return sh(
         returnStdout: opts.capture ?: false,
         script: "${env.ENTERPRISE_IMAGES_DIR}/tools/bin/oit --user=ocp-build --metadata-dir ${env.ENTERPRISE_IMAGES_DIR} ${cmd.trim()}")
+}
+
+def elliott(cmd, opts=[:]){
+    cmd = clean_cmd(cmd)
+    return sh(
+        returnStdout: opts.capture ?: false,
+        script: "${env.ENTERPRISE_IMAGES_DIR}/tools/bin/elliott --user=ocp-build --metadata-dir ${env.ENTERPRISE_IMAGES_DIR} ${cmd.trim()}")
 }
 
 def initialize_ose_dir() {
